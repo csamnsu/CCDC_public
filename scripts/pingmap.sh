@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 printf "PINGMAP V1.1"
 printf "\nIP address of the host to be monitored: "
 read IP
