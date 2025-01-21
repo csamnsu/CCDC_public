@@ -18,12 +18,15 @@ show_system_info() {
     printf "\n\nCurrent running services: \n$SERVICES"
 }
 
-# Function to backup passwd file
-backup_passwd() {
-    read -p "Do you want to backup /etc/passwd? (y/n): " choice
+# Function to backup etc dir
+backup_etc() {
+    read -p "Do you want to backup /etc directory? (y/n): " choice
     if [[ $choice =~ ^[Yy]$ ]]; then
-        cp -p /etc/passwd "$BACKUP_DIR/passwd.bak"
-        echo "Passwd file backed up to $BACKUP_DIR/passwd.bak"
+        cp -pr /etc "$BACKUP_DIR/etc.bak"
+        echo "Creating compressed backup of /etc..."
+        tar czf "$BACKUP_DIR/etc.tar.gz" -C / etc/
+        echo "Complete /etc directory backed up to $BACKUP_DIR/etc.bak"
+        echo "Compressed backup created at $BACKUP_DIR/etc.tar.gz"
     fi
 }
 
@@ -80,20 +83,26 @@ suggest_iptables_rules() {
     echo "iptables -P INPUT DROP  # Set default policy to DROP"
     echo "iptables -A INPUT -i lo -j ACCEPT  # Allow loopback"
     echo "iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT"
-
+    
     # Parse netstat output for open ports
-    echo "$NETSTAT" | grep "LISTEN" | while read -r line; do
+    echo "$NETSTAT" | grep -E "LISTEN|^udp" | while read -r line; do
         # Extract port number and protocol
         port=$(echo "$line" | awk '{print $4}' | awk -F: '{print $NF}')
-        proto=$(echo "$line" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
-
+        proto=$(echo "$line" | awk '{print $1}')
+        
         if [[ $port =~ ^[0-9]+$ ]]; then
             case $proto in
-                "tcp" | "tcp6")
+                "tcp")
                     echo "iptables -A INPUT -p tcp --dport $port -j ACCEPT  # Allow TCP port $port"
                     ;;
-                "udp" | "udp6")
+                "tcp6")
+                    echo "ip6tables -A INPUT -p tcp --dport $port -j ACCEPT  # Allow TCP6 port $port"
+                    ;;
+                "udp")
                     echo "iptables -A INPUT -p udp --dport $port -j ACCEPT  # Allow UDP port $port"
+                    ;;
+                "udp6")
+                    echo "ip6tables -A INPUT -p udp --dport $port -j ACCEPT  # Allow UDP6 port $port"
                     ;;
             esac
         fi
@@ -118,7 +127,7 @@ if [[ $start_backup =~ ^[Yy]$ ]]; then
     chmod 700 "$BACKUP_DIR"
 
     # Proceed with backups and security suggestions
-    backup_passwd
+    backup_etc
     backup_service_configs
     suggest_iptables_rules
     echo -e "\nScript completed. Backups stored in $BACKUP_DIR"
