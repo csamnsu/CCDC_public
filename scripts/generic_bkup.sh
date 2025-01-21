@@ -116,6 +116,7 @@ echo "Starting system analysis script..."
 read -p $'\nWould you like to see general system information? (y/n): ' show_info
 if [[ $show_info =~ ^[Yy]$ ]]; then
     show_system_info
+    suggest_iptables_rules
 fi
 
 # Then prompt for backup procedure
@@ -129,7 +130,6 @@ if [[ $start_backup =~ ^[Yy]$ ]]; then
     # Proceed with backups and security suggestions
     backup_etc
     backup_service_configs
-    suggest_iptables_rules
     echo -e "\nScript completed. Backups stored in $BACKUP_DIR"
 else
     echo -e "\nSkipping backup procedure. Script completed."
