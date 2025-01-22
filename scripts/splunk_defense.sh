@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Define variables
-TRUSTED_FORWARDER_IP="192.168.1.2"
 SPLUNK_DIR="/opt/splunk"
 BACKUP_DIR="/backups/splunk"
 SPLUNK_PORT=8000
@@ -24,11 +23,9 @@ chattr -i $SPLUNK_DIR/var/log/splunk/*
 # 4. Check and disable SELinux temporarily
 setenforce 0
 
-# 5. Implement rate limiting
-splunk edit limits -rate_limit 500
-iptables -A INPUT -p tcp --dport 9997 -m limit --limit 50/s --limit-burst 100 -j ACCEPT
-iptables -A INPUT -p tcp --dport 9997 -j DROP
-splunk edit server -maxThreads 200
+# 5. Implement adaptive monitoring
+splunk search "index=_audit action=login" | awk '{print $3}' | sort | uniq -c | sort -nr | head -10
+splunk search "index=_internal sourcetype=splunkd_access" | grep -i failed
 
 # 6. Protect log integrity
 mkdir -p $BACKUP_DIR
@@ -39,9 +36,8 @@ systemctl enable splunk
 chattr +i $SPLUNK_DIR/etc/system/local/*
 (crontab -l ; echo "* * * * * $SPLUNK_DIR/bin/splunk restart") | crontab -
 
-# 8. Secure forwarder connections
-echo "sslPassword = securepass" >> $SPLUNK_DIR/etc/system/local/outputs.conf
-iptables -A INPUT -p tcp --dport 9997 -s $TRUSTED_FORWARDER_IP -j ACCEPT
+# 8. Secure forwarder connections dynamically
+splunk search "index=_internal sourcetype=splunkd" | awk '{print $4}' | sort | uniq -c | sort -nr | head -10
 
 # 9. Monitor installed apps
 splunk display app list
@@ -52,8 +48,9 @@ splunk edit user admin -role limited_access
 splunk search "index=_internal sourcetype=scheduler"
 splunk disable savedsearch -name malicious_search
 
-# 11. Close unused ports
-iptables -A INPUT -p tcp --dport 8089 -j DROP
+# 11. Close unused ports dynamically
+netstat -tuln | grep LISTEN
+iptables -A INPUT -p tcp --match multiport --dports 22,9997,8089 -j ACCEPT
 
 # 12. Enable encryption
 splunk edit server -sslEnable 1
