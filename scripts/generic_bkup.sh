@@ -65,7 +65,7 @@ backup_service_configs() {
         if [[ $choice =~ ^[Yy]$ ]]; then
             # Backup both possible Splunk config locations
             if [ -d "/opt/splunk/etc" ]; then
-                cp -pr /opt/splunk/etc "$BACKUP_DIR/splunk_etc.bak"
+                cp -pr /opt/splunk "$BACKUP_DIR/splunk_etc.bak"
                 echo "Splunk configs backed up from /opt/splunk/etc"
             fi
             if [ -d "/opt/splunkforwarder/etc" ]; then
